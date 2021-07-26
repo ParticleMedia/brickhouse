@@ -28,11 +28,8 @@ import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
 import org.apache.hadoop.hive.ql.udf.generic.AbstractGenericUDAFResolver;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFEvaluator;
-import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.*;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.log4j.Logger;
@@ -72,7 +69,9 @@ public class CombineUniqueUDAF extends AbstractGenericUDAFResolver {
     public static class CombineUniqueUDAFEvaluator extends GenericUDAFEvaluator {
         private static final Logger LOG = Logger.getLogger(CombineUniqueUDAFEvaluator.class);
         // For PARTIAL1 and COMPLETE: ObjectInspectors for original data
-        private ListObjectInspector inputOI;
+        private transient ListObjectInspector inputOI;
+
+        private transient ObjectInspector elementOI;
         // For PARTIAL2 and FINAL: ObjectInspectors for partial aggregations (list
         // of objs)
         //private StandardListObjectInspector loi;
@@ -80,17 +79,15 @@ public class CombineUniqueUDAF extends AbstractGenericUDAFResolver {
 
 
         static class UniqueSetBuffer implements AggregationBuffer {
-            HashSet collectSet = new HashSet();
+            HashSet<Object> collectSet = new HashSet<Object>();
         }
 
         public ObjectInspector init(Mode m, ObjectInspector[] parameters)
                 throws HiveException {
             super.init(m, parameters);
             inputOI = (ListObjectInspector) parameters[0];
-            ObjectInspector elemInsp = PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector(
-                    ((PrimitiveObjectInspector) (inputOI.getListElementObjectInspector())).getPrimitiveCategory());
-            return ObjectInspectorFactory
-                    .getStandardListObjectInspector(elemInsp);
+            elementOI = inputOI.getListElementObjectInspector();
+            return ObjectInspectorUtils.getStandardObjectInspector(inputOI);
         }
 
         @Override
@@ -121,7 +118,7 @@ public class CombineUniqueUDAF extends AbstractGenericUDAFResolver {
         @Override
         public void reset(AggregationBuffer buff) throws HiveException {
             UniqueSetBuffer arrayBuff = (UniqueSetBuffer) buff;
-            arrayBuff.collectSet = new HashSet();
+            arrayBuff.collectSet.clear();
         }
 
         @Override
@@ -134,11 +131,12 @@ public class CombineUniqueUDAF extends AbstractGenericUDAFResolver {
         }
 
         private void putIntoSet(Object p, UniqueSetBuffer myagg) {
-            List pList = inputOI.getList(p);
-            ObjectInspector objInsp = inputOI.getListElementObjectInspector();
+            List<Object> pList = (List<Object>) inputOI.getList(p);
+            if (pList == null) {
+                return;
+            }
             for (Object obj : pList) {
-                Object realObj = ((PrimitiveObjectInspector) objInsp).getPrimitiveJavaObject(obj);
-                myagg.collectSet.add(realObj);
+                myagg.collectSet.add(ObjectInspectorUtils.copyToStandardObject(obj, this.elementOI));
             }
         }
 
