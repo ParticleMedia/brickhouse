@@ -16,6 +16,7 @@ CREATE TEMPORARY FUNCTION cast_array AS 'brickhouse.udf.collect.CastArrayUDF';
 CREATE TEMPORARY FUNCTION cast_map AS 'brickhouse.udf.collect.CastMapUDF';
 CREATE TEMPORARY FUNCTION combine AS 'brickhouse.udf.collect.CombineUDF';
 CREATE TEMPORARY FUNCTION combine_unique AS 'brickhouse.udf.collect.CombineUniqueUDAF';
+CREATE TEMPORARY FUNCTION collect_hyphen_part_one AS 'brickhouse.udf.collect.CollectHyphenPartOneUDF';
 CREATE TEMPORARY FUNCTION conditional_emit AS 'brickhouse.udf.collect.ConditionalEmit';
 CREATE TEMPORARY FUNCTION join_array AS 'brickhouse.udf.collect.JoinArrayUDF';
 CREATE TEMPORARY FUNCTION map_filter_keys AS 'brickhouse.udf.collect.MapFilterKeysUDF';
